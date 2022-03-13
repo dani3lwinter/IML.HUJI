@@ -164,7 +164,7 @@ class MultivariateGaussian:
         num_of_samples, sample_dim = X.shape
         self.mu_ = X.mean(axis=0)
         x_centered = X - self.mu_
-        self.cov_ = np.dot(x_centered.T, x_centered) / num_of_samples
+        self.cov_ = np.dot(x_centered.T, x_centered) / (num_of_samples - 1)
         # TODO: biased or unbiased??
 
         self.fitted_ = True
@@ -232,5 +232,6 @@ class MultivariateGaussian:
         part1 = m * d * math.log(2 * math.pi)
         part2 = m * math.log(cov_det)
         x_centered = X - mu
+        # par3 equivalent to trace(X.T dot cov.I dot X) = sum_1-m{Xi-mu * cov.I * Xi-mu}]
         part3 = (x_centered.dot(inverse_cov) * x_centered).sum()
         return (-1/2) * (part1 + part2 + part3)
