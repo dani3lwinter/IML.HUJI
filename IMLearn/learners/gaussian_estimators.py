@@ -4,7 +4,6 @@ import math
 import numpy as np
 from numpy.linalg import inv, det, slogdet
 
-
 class UnivariateGaussian:
     """
     Class for univariate Gaussian Distribution Estimator
@@ -53,18 +52,17 @@ class UnivariateGaussian:
         Sets `self.mu_`, `self.var_` attributes according to calculated estimation (where
         estimator is either biased or unbiased). Then sets `self.fitted_` attribute to `True`
         """
+        self.fitted_ = True
 
         # this mu maximizes the likelihood of the given samples
         self.mu_ = X.mean()
+        if X.size < 2:
+            self.var_ = 0
+            return self
 
-        if self.biased_:
-            norm_factor = 1 / X.size
-        else:
-            norm_factor = 1 / (X.size - 1)
-
+        norm_factor = (1 / X.size) if self.biased_ else (1 / (X.size - 1))
         self.var_ = norm_factor * ((X - self.mu_) ** 2).sum()
 
-        self.fitted_ = True
         return self
 
     def pdf(self, X: np.ndarray) -> np.ndarray:
@@ -163,9 +161,12 @@ class MultivariateGaussian:
 
         num_of_samples, sample_dim = X.shape
         self.mu_ = X.mean(axis=0)
-        x_centered = X - self.mu_
-        self.cov_ = np.dot(x_centered.T, x_centered) / num_of_samples
-        # TODO: biased or unbiased??
+
+        if num_of_samples <= 1:
+            self.cov_ = 0
+        else:
+            x_centered = X - self.mu_
+            self.cov_ = x_centered.T.dot(x_centered) / (num_of_samples - 1)
 
         self.fitted_ = True
         return self
@@ -224,13 +225,13 @@ class MultivariateGaussian:
         """
         # m = number of samples, d = sample dimension
         m, d = X.shape
-
-        cov_det = np.linalg.det(cov)
         inverse_cov = np.linalg.inv(cov)
 
         # calc log(L) = -1/2 * [m*d*log(2pi) + m*log(det(cov)) + sum_1-m{Xi-mu * cov.I * Xi-mu}]
         part1 = m * d * math.log(2 * math.pi)
-        part2 = m * math.log(cov_det)
+        sign, log_det_cov = slogdet(cov)
+        part2 = m * sign * log_det_cov
         x_centered = X - mu
+        # par3 equivalent to trace(X.T dot cov.I dot X) which is also sum_1-m{Xi-mu * cov.I * Xi-mu}]
         part3 = (x_centered.dot(inverse_cov) * x_centered).sum()
         return (-1/2) * (part1 + part2 + part3)

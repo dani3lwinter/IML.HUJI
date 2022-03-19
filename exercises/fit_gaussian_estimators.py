@@ -2,11 +2,9 @@ from IMLearn.learners import UnivariateGaussian, MultivariateGaussian
 import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
-# pio.templates.default = "simple_white"
+
 pio.templates.default = "plotly_white"
-
 pio.renderers.default = "browser"
-
 
 def test_univariate_gaussian():
     # Question 1 - Draw samples and print fitted model
@@ -41,7 +39,7 @@ def test_univariate_gaussian():
 
 def test_multivariate_gaussian():
     # Question 4 - Draw samples and print fitted model
-    mean = np.array([0, 0, 4, 0])
+    mean = np.array([0, 0, 4, 0]).T
     cov = np.array([
         [1,  0.2, 0, 0.5],
         [0.2, 2,  0,  0],
@@ -51,6 +49,7 @@ def test_multivariate_gaussian():
     sample_size = 1000
     samples = np.random.multivariate_normal(mean, cov, sample_size)
     fitter = MultivariateGaussian().fit(samples)
+    print("=== Question 4 ===")
     print("Estimated expectation:")
     print(fitter.mu_)
     print("Estimated covariance matrix:")
@@ -59,29 +58,27 @@ def test_multivariate_gaussian():
     # Question 5 - Likelihood evaluation
     f1 = np.linspace(-10, 10, 200)
     f3 = np.linspace(-10, 10, 200)
-    z_values = np.empty((f1.size, f3.size))
+    zeros = np.zeros(f1.size * f3.size)
+    mus = np.array([np.repeat(f1, f3.size), zeros, np.tile(f3, f1.size), zeros]).T
+    z_values = np.array([MultivariateGaussian.log_likelihood(m, cov, samples) for m in mus])
+    z_values = z_values.reshape((f1.size, f3.size))
 
-    for i in range(f1.size):
-        for j in range(f3.size):
-            mu = np.array([f1[i], 0, f3[j], 0])
-            z_values[i][j] = MultivariateGaussian.log_likelihood(mu, cov, samples)
-
-    heat_fig = go.Figure(go.Heatmap(x=f3, y=f1, z=z_values))
+    heat_fig = go.Figure(go.Heatmap(x=f3, y=f1, z=z_values, colorbar={"title": "log-likelihood value"}))
     heat_fig.update_layout(title="Question 5 - log-likelihood of mu=[f1, 0, f3, 0]")
     heat_fig.update_xaxes(title_text="f3")
     heat_fig.update_yaxes(title_text="f1")
 
     # label the maximum point on the graph
     f1_max, f3_max = np.unravel_index(z_values.argmax(), z_values.shape)
-    label = "\n argmax: (f3=%0.3f, f1=%0.3f)" % (f3[f3_max], f1[f1_max])
+    label = "argmax: (f3=%0.3f, f1=%0.3f)" % (f3[f3_max], f1[f1_max])
     max_point = go.Scatter(x=[f3[f3_max]], y=[f1[f1_max]], text=[label],
                            mode='markers+text', textposition="bottom center")
     heat_fig.add_trace(max_point)
     heat_fig.show()
 
     # Question 6 - Maximum likelihood
-    print("Question 6 - Maximum likelihood:")
-    print(label)
+    print("\nQuestion 6 - Maximum likelihood:")
+    print("argmax: [f1, 0, f3, 0] = [%0.3f, 0, %0.3f, 0]" % (f1[f1_max], f3[f3_max]))
 
 
 if __name__ == '__main__':
