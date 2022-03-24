@@ -56,6 +56,7 @@ class UnivariateGaussian:
 
         # this mu maximizes the likelihood of the given samples
         self.mu_ = X.mean()
+
         if X.size < 2:
             self.var_ = 0
             return self
@@ -163,7 +164,7 @@ class MultivariateGaussian:
         self.mu_ = X.mean(axis=0)
 
         if num_of_samples <= 1:
-            self.cov_ = 0
+            self.cov_ = np.zeros(sample_dim, sample_dim)
         else:
             x_centered = X - self.mu_
             self.cov_ = x_centered.T.dot(x_centered) / (num_of_samples - 1)
@@ -228,7 +229,7 @@ class MultivariateGaussian:
         inverse_cov = np.linalg.inv(cov)
 
         # calc log(L) = -1/2 * [m*d*log(2pi) + m*log(det(cov)) + sum_1-m{Xi-mu * cov.I * Xi-mu}]
-        part1 = m * d * math.log(2 * math.pi)
+        part1 = m * d * np.log(2 * np.pi)
         sign, log_det_cov = slogdet(cov)
         part2 = m * sign * log_det_cov
         x_centered = X - mu
