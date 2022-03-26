@@ -7,7 +7,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
-pio.templates.default = "simple_white"
+# pio.templates.default = "simple_white"
+pio.templates.default = "plotly_white"
+
+pio.renderers.default = "browser"
+
+# TODO - can i import??
+import datetime as dt
+import os
 
 
 def load_data(filename: str):
@@ -23,8 +30,46 @@ def load_data(filename: str):
     Design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    raise NotImplementedError()
 
+    # load data
+    X = pd.read_csv(filename)
+
+    # keep only rows with positive price
+    X = X[X.price > 0]
+
+    # remove extreme cases
+    X = X[X.price < 5000000]
+
+    # convert "date" column from strings to ints
+    X.date = pd.to_datetime(X.date)
+    X.date = X.date.map(dt.datetime.toordinal)
+
+    # replace empty yr_renovated cells with the value in yr_built
+    X.loc[X.yr_renovated == 0, "yr_renovated"] = X.loc[X.yr_renovated == 0, "yr_built"]
+
+    # fill empty date cells
+    X.loc[X.date < 700000, "date"] = np.round(X.date.mean())
+
+    # convert "zipcode" column to dummy
+    X = pd.get_dummies(X, columns=["zipcode"])
+
+    responses = X["price"]
+    X.drop('price', axis=1, inplace=True)
+    X.drop('id', axis=1, inplace=True)
+    X.drop('lat', axis=1, inplace=True)
+    X.drop('long', axis=1, inplace=True)
+
+    return X, responses
+
+
+def calc_correlation(x: pd.Series, y: pd.Series) -> float:
+    """
+    Calculate the Pearson Correlation between x and y.
+    """
+    cov_xy = np.cov(x, y)[0][1]
+    std_x = np.std(x)
+    std_y = np.std(y)
+    return cov_xy / (std_x * std_y)
 
 def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") -> NoReturn:
     """
@@ -43,19 +88,33 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    raise NotImplementedError()
+    col_names = X.columns
+    correlations = np.array([calc_correlation(X[col], y) for col in col_names])
+    fig = go.Figure([go.Bar(x=col_names, y=correlations)])
+    fig.update_layout(barmode='stack', xaxis={'categoryorder': 'total descending'})
+    fig.show()
+
+    for col in X.columns:
+        corr = calc_correlation(X[col], y)
+        fig = go.Figure(go.Scatter(x=X[col], y=y, mode='markers', marker={'size': 3}))
+        fig.update_layout(title="House Prices as Function of %s. Correlation is %.3f" % (col, corr))
+        fig.update_xaxes(title_text=col + " Value")
+        fig.update_yaxes(title_text="House Price")
+        fig.write_image(os.path.join(output_path, col + ".png"))
+
+
 
 
 if __name__ == '__main__':
     np.random.seed(0)
     # Question 1 - Load and preprocessing of housing prices dataset
-    raise NotImplementedError()
+    X, y = load_data("../datasets/house_prices.csv")
 
     # Question 2 - Feature evaluation with respect to response
-    raise NotImplementedError()
+    #feature_evaluation(X, y, r"C:\Users\Daniel\Desktop\Uni\IML\ex2_plots")
 
     # Question 3 - Split samples into training- and testing sets.
-    raise NotImplementedError()
+    train_X, train_y, test_X, test_y = split_train_test(X, y, 0.75)
 
     # Question 4 - Fit model over increasing percentages of the overall training data
     # For every percentage p in 10%, 11%, ..., 100%, repeat the following 10 times:
@@ -64,4 +123,40 @@ if __name__ == '__main__':
     #   3) Test fitted model over test set
     #   4) Store average and variance of loss over test set
     # Then plot average loss as function of training size with error ribbon of size (mean-2*std, mean+2*std)
-    raise NotImplementedError()
+
+    learner = LinearRegression(include_intercept=True)
+    percentage = np.arange(0.1, 1.01, 0.01)
+    losses_mean = np.empty(percentage.size)
+    losses_std = np.empty(percentage.size)
+
+    for i in range(len(percentage)):
+        p = percentage[i]
+        print(p)
+        losses = np.empty(10)
+
+        # fit the model 10 times in p% of the training set
+        for j in range(10):
+            new_X, new_y, _, _ = split_train_test(train_X, train_y, p)
+            learner.fit(np.array(new_X), np.array(new_y))
+            losses[j] = learner.loss(np.array(test_X), np.array(test_y))
+
+        losses_mean[i] = losses.mean()
+        losses_std[i] = losses.std()
+
+    # plot the results
+    go.Figure(
+        [
+            go.Scatter(x=percentage, y=losses_mean - 2 * losses_std, fill=None,
+                       mode="lines", line=dict(color="lightgrey"), showlegend=False),
+            go.Scatter(x=percentage, y=losses_mean + 2 * losses_std, fill='tonexty',
+                       mode="lines", line=dict(color="lightgrey"), showlegend=False),
+            go.Scatter(x=percentage, y=losses_mean, mode="markers+lines",
+                       marker=dict(color="black", size=1), showlegend=False)
+        ],
+        layout=go.Layout(
+            title="Mean loss as a function of p%, with confidence interval of mean(loss)±2*std(loss)",
+            xaxis_title="p% - The percentage of used samples from the training set",
+            yaxis_title="The mean loss over 10 times of training",
+        )
+    ).show()
+

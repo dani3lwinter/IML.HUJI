@@ -5,6 +5,9 @@ import numpy as np
 from numpy.linalg import pinv
 
 
+# TODO: right import?
+from ...metrics.loss_functions import mean_square_error
+
 class LinearRegression(BaseEstimator):
     """
     Linear Regression Estimator
@@ -33,6 +36,17 @@ class LinearRegression(BaseEstimator):
         super().__init__()
         self.include_intercept_, self.coefs_ = include_intercept, None
 
+    def __x_with_intercept(self, X: np.ndarray) -> np.ndarray:
+        """
+            if include_intercept is True, returns X with leading column of ones,
+            otherwise, returns X as is.
+        """
+        num_of_samples = X.shape[0]
+        if self.include_intercept_:
+            return np.c_[np.ones(num_of_samples), X]
+        else:
+            return X
+
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
         Fit Least Squares model to given samples
@@ -49,7 +63,8 @@ class LinearRegression(BaseEstimator):
         -----
         Fits model with or without an intercept depending on value of `self.include_intercept_`
         """
-        raise NotImplementedError()
+        X = self.__x_with_intercept(X)
+        self.coefs_ = pinv(X).dot(y)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -65,7 +80,10 @@ class LinearRegression(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+
+        # X shape is m*(d+1), then X' shape is (d+1)*m, coef shape is (d+1)*1
+        X = self.__x_with_intercept(X)
+        return X.dot(self.coefs_)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -84,4 +102,5 @@ class LinearRegression(BaseEstimator):
         loss : float
             Performance under MSE loss function
         """
-        raise NotImplementedError()
+        y_pred = self._predict(X)
+        return mean_square_error(y, y_pred)
