@@ -43,7 +43,6 @@ def load_data(filename: str):
 
     # remove extreme cases
     X = X[X.price < 5_000_000]
-    X = X[X.bedrooms < 33]
 
     # convert "date" column from strings to ints
     X.date = pd.to_datetime(X.date)
@@ -111,7 +110,7 @@ if __name__ == '__main__':
     X, y = load_data("../datasets/house_prices.csv")
 
     # Question 2 - Feature evaluation with respect to response
-    feature_evaluation(X, y, r".")
+    #feature_evaluation(X, y, r".")
 
     # Question 3 - Split samples into training- and testing sets.
     train_X, train_y, test_X, test_y = split_train_test(X, y, 0.75)
