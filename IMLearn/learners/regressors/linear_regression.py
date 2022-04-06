@@ -4,9 +4,8 @@ from ...base import BaseEstimator
 import numpy as np
 from numpy.linalg import pinv
 
+from IMLearn.metrics.loss_functions import mean_square_error
 
-# TODO: right import?
-from ...metrics.loss_functions import mean_square_error
 
 class LinearRegression(BaseEstimator):
     """

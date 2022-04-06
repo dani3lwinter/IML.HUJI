@@ -1,3 +1,5 @@
+import sys
+
 from IMLearn.utils import split_train_test
 from IMLearn.learners.regressors import LinearRegression
 
@@ -7,14 +9,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
-# pio.templates.default = "simple_white"
-pio.templates.default = "plotly_white"
 
-pio.renderers.default = "browser"
-
-# TODO - can i import??
 import datetime as dt
 import os
+
+pio.templates.default = "plotly_white"
+pio.renderers.default = "browser"
 
 
 def load_data(filename: str):
@@ -37,8 +37,13 @@ def load_data(filename: str):
     # keep only rows with positive price
     X = X[X.price > 0]
 
+    area_columns = ['sqft_living', 'sqft_lot', 'sqft_above', 'sqft_lot15', 'sqft_living15']
+    for col in area_columns:
+        X = X[X[col] >= 0]
+
     # remove extreme cases
-    X = X[X.price < 5000000]
+    X = X[X.price < 5_000_000]
+    X = X[X.bedrooms < 33]
 
     # convert "date" column from strings to ints
     X.date = pd.to_datetime(X.date)
@@ -67,9 +72,12 @@ def calc_correlation(x: pd.Series, y: pd.Series) -> float:
     Calculate the Pearson Correlation between x and y.
     """
     cov_xy = np.cov(x, y)[0][1]
+    if np.isnan(cov_xy):
+        return 0
     std_x = np.std(x)
     std_y = np.std(y)
     return cov_xy / (std_x * std_y)
+
 
 def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") -> NoReturn:
     """
@@ -88,12 +96,6 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    col_names = X.columns
-    correlations = np.array([calc_correlation(X[col], y) for col in col_names])
-    fig = go.Figure([go.Bar(x=col_names, y=correlations)])
-    fig.update_layout(barmode='stack', xaxis={'categoryorder': 'total descending'})
-    fig.show()
-
     for col in X.columns:
         corr = calc_correlation(X[col], y)
         fig = go.Figure(go.Scatter(x=X[col], y=y, mode='markers', marker={'size': 3}))
@@ -103,15 +105,13 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
         fig.write_image(os.path.join(output_path, col + ".png"))
 
 
-
-
 if __name__ == '__main__':
     np.random.seed(0)
     # Question 1 - Load and preprocessing of housing prices dataset
     X, y = load_data("../datasets/house_prices.csv")
 
     # Question 2 - Feature evaluation with respect to response
-    #feature_evaluation(X, y, r"C:\Users\Daniel\Desktop\Uni\IML\ex2_plots")
+    feature_evaluation(X, y, r".")
 
     # Question 3 - Split samples into training- and testing sets.
     train_X, train_y, test_X, test_y = split_train_test(X, y, 0.75)
@@ -131,7 +131,6 @@ if __name__ == '__main__':
 
     for i in range(len(percentage)):
         p = percentage[i]
-        print(p)
         losses = np.empty(10)
 
         # fit the model 10 times in p% of the training set
