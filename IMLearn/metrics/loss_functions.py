@@ -16,7 +16,9 @@ def mean_square_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     -------
     MSE of given predictions
     """
-    # TODO: check shape mismatch?
+    if y_true.size != y_pred.size:
+        raise ValueError("y_true and y_pred must have the same length")
+
     return np.power(y_true - y_pred, 2).sum() / y_true.size
 
 
@@ -37,7 +39,22 @@ def misclassification_error(y_true: np.ndarray, y_pred: np.ndarray, normalize: b
     -------
     Misclassification of given predictions
     """
-    raise NotImplementedError()
+    if y_true.size != y_pred.size:
+        raise ValueError("y_true and y_pred must have the same length")
+
+    misclassifications = (y_true != y_pred).sum()
+    if normalize:
+        return misclassifications / y_true.size
+    else:
+        return misclassifications
+
+
+
+    # if normalize:
+    #     return np.sum(y_true != y_pred) / y_true.size
+    # else:
+    #     return np.sum(y_true != y_pred)
+    #
 
 
 def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
