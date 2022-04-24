@@ -1,4 +1,5 @@
 from typing import NoReturn
+
 from ...base import BaseEstimator
 import numpy as np
 from numpy.linalg import det, inv
@@ -46,7 +47,23 @@ class LDA(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        self.classes_ = np.unique(y)
+        n_samples, n_features = X.shape
+        n_classes = len(self.classes_)
+
+        self.mu_ = np.zeros((n_classes, n_features))
+        self.cov_ = np.zeros((n_features, n_features))
+        self.pi_ = np.zeros(n_classes)
+        X_centered = X.copy()
+
+        for i, cls in enumerate(self.classes_):
+            class_filter = y == cls
+            self.pi_[i] = class_filter.sum() / n_samples
+            self.mu_[i] = np.mean(X[class_filter], axis=0)
+            X_centered[class_filter] = X[class_filter] - self.mu_[i]
+
+        self.cov_ = X_centered.T @ X_centered / (n_samples - n_classes)
+        self._cov_inv = inv(self.cov_)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -62,7 +79,33 @@ class LDA(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        return self.classes_[np.argmax(self.likelihood(X), axis=1)]
+
+    def __gaussian_pdf(self, x: np.ndarray, class_index: int) -> np.ndarray:
+        """
+        Calculates the pdf of a multivariate gaussian distribution of each sample in x
+
+        Parameters
+        ----------
+        x : ndarray of shape (n_samples,n_features)
+            Input data to calculate the probability density function for
+
+        class_index : int the index of the class to calculate the pdf for
+
+        Returns
+        -------
+        pdf : ndarray of shape (n_samples,)
+            The probability density function of the multivariate gaussian distribution
+        """
+        mu, cov, cov_inv = self.mu_[class_index], self.cov_, self._cov_inv
+
+        n_samples, n_features = x.shape
+        x_centered = x - mu
+        factor = np.sqrt(np.power(2 * np.pi, n_features) * det(cov))
+        pdf = np.array([np.exp(-0.5 * sample.T @ cov_inv @ sample) / factor
+                        for sample in x_centered])
+
+        return pdf
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
@@ -82,7 +125,10 @@ class LDA(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        raise NotImplementedError()
+        n_classes = len(self.classes_)
+        likelihoods = np.vstack([self.__gaussian_pdf(X, i) * self.pi_[i]
+                                 for i in range(n_classes)]).T
+        return likelihoods
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -102,4 +148,7 @@ class LDA(BaseEstimator):
             Performance under missclassification loss function
         """
         from ...metrics import misclassification_error
-        raise NotImplementedError()
+        return misclassification_error(y, self.predict(X))
+
+
+

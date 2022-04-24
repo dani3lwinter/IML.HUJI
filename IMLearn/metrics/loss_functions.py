@@ -49,14 +49,6 @@ def misclassification_error(y_true: np.ndarray, y_pred: np.ndarray, normalize: b
         return misclassifications
 
 
-
-    # if normalize:
-    #     return np.sum(y_true != y_pred) / y_true.size
-    # else:
-    #     return np.sum(y_true != y_pred)
-    #
-
-
 def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     Calculate accuracy of given predictions
@@ -72,7 +64,11 @@ def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     -------
     Accuracy of given predictions
     """
-    raise NotImplementedError()
+    if y_true.size != y_pred.size:
+        raise ValueError("y_true and y_pred must have the same length")
+
+    return (y_true == y_pred).sum() / y_true.size
+
 
 
 def cross_entropy(y_true: np.ndarray, y_pred: np.ndarray) -> float:

@@ -102,7 +102,6 @@ class Perceptron(BaseEstimator):
             if not is_updated:
                 return
 
-
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
         Predict responses for given samples using fitted estimator
@@ -118,7 +117,8 @@ class Perceptron(BaseEstimator):
             Predicted responses of given samples
         """
         X = self.__x_with_intercept(X)
-        return np.sign(X.dot(self.coefs_))
+        y_hat = np.sign(X.dot(self.coefs_))
+        return np.where(y_hat == 0, 1, y_hat)
 
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
@@ -140,5 +140,5 @@ class Perceptron(BaseEstimator):
         """
         from ...metrics import misclassification_error
         y_pred = self.predict(X)
-        return misclassification_error(y, y_pred, normalize=False)
+        return misclassification_error(y, y_pred, normalize=True)
 
