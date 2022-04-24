@@ -51,7 +51,6 @@ class GaussianNaiveBayes(BaseEstimator):
         for i in range(self.classes_.shape[0]):
             class_filter = y == self.classes_[i]
             self.mu_[i] = np.mean(X[class_filter], axis=0)
-            # self.vars_[i] = np.mean((X[class_filter] - self.mu_[i])**2, axis=0)
             self.vars_[i] = np.var(X[class_filter], axis=0, ddof=1)
             self.pi_[i] = np.sum(class_filter) / y.shape[0]
 

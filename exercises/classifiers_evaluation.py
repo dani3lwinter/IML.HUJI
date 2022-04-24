@@ -170,10 +170,6 @@ def compare_gaussian_classifiers():
             fig.add_trace(get_ellipse(lda.mu_[i], lda.cov_),
                           row=1, col=2)
 
-        # fig.update_yaxes(
-        #     scaleanchor="x",
-        #     scaleratio=1,
-        # )
         fig.show()
 
 if __name__ == '__main__':
