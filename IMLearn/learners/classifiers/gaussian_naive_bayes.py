@@ -41,6 +41,8 @@ class GaussianNaiveBayes(BaseEstimator):
             Responses of input data to fit to
         """
         self.classes_ = np.unique(y)
+        if len(X.shape) == 1:
+            X = X.reshape(-1, 1)
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
 
@@ -51,7 +53,7 @@ class GaussianNaiveBayes(BaseEstimator):
         for i in range(self.classes_.shape[0]):
             class_filter = y == self.classes_[i]
             self.mu_[i] = np.mean(X[class_filter], axis=0)
-            self.vars_[i] = np.var(X[class_filter], axis=0, ddof=1)
+            self.vars_[i] = np.var(X[class_filter], axis=0, ddof=0)
             self.pi_[i] = np.sum(class_filter) / y.shape[0]
 
         self.fitted_ = True

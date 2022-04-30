@@ -48,6 +48,9 @@ class LDA(BaseEstimator):
             Responses of input data to fit to
         """
         self.classes_ = np.unique(y)
+        if len(X.shape) == 1:
+            X = X.reshape(-1, 1)
+
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
 
@@ -126,6 +129,9 @@ class LDA(BaseEstimator):
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
         n_classes = len(self.classes_)
+        if len(X.shape) == 1:
+            X = X.reshape(-1, 1)
+
         likelihoods = np.vstack([self.__gaussian_pdf(X, i) * self.pi_[i]
                                  for i in range(n_classes)]).T
         return likelihoods
