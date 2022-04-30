@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import NoReturn, Tuple
-from ...base import BaseEstimator
+# from ...base import BaseEstimator
+from IMLearn.base import BaseEstimator
 import numpy as np
 from itertools import product
 
-from ...metrics import misclassification_error
+from IMLearn.metrics import misclassification_error
 
 
 class DecisionStump(BaseEstimator):
@@ -119,20 +120,40 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
         which equal to or above the threshold are predicted as `sign`
         """
+        indx = np.argsort(values)
+        values = values[indx]
+        labels = labels[indx]
+
+        best_thr = values[0]
+        misses = np.sum(labels != sign)
+        least_misses = misses
+
+        # allow the threshold to be a little above all samples
+        np.append(values, values[-1] + np.abs(0.01 * values[-1]))
+
+        for i in range(1, len(values)):
+            # when the threshold is value[i],
+            # label[i-1] is a miss iff  label[i-1]*(-sign) = -1 iff label[i-1]*sign = 1
+            misses += labels[i-1]*sign
+            if misses < least_misses:
+                least_misses = misses
+                best_thr = values[i]
+
+        return best_thr, least_misses/labels.size
 
         best_thr = 0
         least_err = 1
 
-        for value in np.unique(values):
+        for thr in np.unique(values):
 
             # evaluate the misclassification error for this threshold
-            prediction = np.full(labels.shape, sign)
-            prediction[values < value] = -sign
+            # prediction = np.full(labels.shape, sign)
+            prediction = np.where(values < thr, -sign, sign)
             err = misclassification_error(labels, prediction, normalize=True)
 
             if err < least_err:
                 least_err = err
-                best_thr = value
+                best_thr = thr
 
         return best_thr, least_err
 
@@ -154,4 +175,3 @@ class DecisionStump(BaseEstimator):
             Performance under missclassification loss function
         """
         return misclassification_error(y, self._predict(X), normalize=True)
-
