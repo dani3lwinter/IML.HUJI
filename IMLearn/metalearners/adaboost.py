@@ -38,41 +38,24 @@ class AdaBoost(BaseEstimator):
         self.wl_ = wl
         self.iterations_ = iterations
         self.models_, self.weights_, self.D_ = [], np.zeros(iterations), np.zeros(iterations)
-
-    @staticmethod
-    def __find_weights(X, y, model, cur_sample_weight):
-        """
-        Find the weights for the next iteration
-
-        Parameters
-        ----------
-        X, y : current sample
-
-        model : BaseEstimator
-            Fitted estimator to use for finding the weights
-
-        cur_sample_weight : ndarray of shape (n_samples, )
-            Current sample weights
-
-        Returns
-        -------
-        new_sample_weight : ndarray of shape (n_samples, )
-            New sample weights
-        """
-        epsilon = model.loss(X, y)
-        model_weight = np.log(1 / epsilon - 1) / 2
-        y_pred = model.predict(X)
-        sample_factor = np.exp(-y * model_weight * y_pred)
-        new_sample_weight = cur_sample_weight * sample_factor
-        return model_weight, new_sample_weight
+        self.D_ = np.zeros(iterations)
 
     @staticmethod
     def __resample(cur_X, cur_y, sample_weights):
         """
         Resample the current dataset according to sample_weights
         """
-        new_indices = np.random.choice(cur_y.size, p=sample_weights)
-        return cur_X[new_indices], cur_y[new_indices]
+        new_indices = np.random.choice(cur_y.size, size=cur_y.size, p=sample_weights)
+        return cur_X[new_indices, :], cur_y[new_indices]
+
+    def weighted_loss(self, y_true, y_pred, sample_weights):
+        """
+        Calculate the weighted loss for a given set of predictions
+        """
+        misses = np.where(y_true != y_pred, 1, 0)
+        return np.sum(misses * sample_weights)
+        # return np.sum(sample_weights * ((1 - y_true * y_pred) / 2))
+
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -89,24 +72,36 @@ class AdaBoost(BaseEstimator):
         if len(X.shape) == 1:
             X = X.reshape((-1, 1))
         n_samples = X.shape[0]
-
+        self.D_ = np.zeros((self.iterations_, n_samples))
         self.models_ = [self.wl_() for _ in range(self.iterations_)]
 
         cur_X, cur_y = X, y
         self.D_[0] = np.full(n_samples, 1/n_samples)
 
         for i in range(self.iterations_):
+            print(f"Fitting model {i+1}/{self.iterations_}", end="\r")
             self.models_[i].fit(cur_X, cur_y)
-            y_pred = self.models_[i].predict(cur_X)
-            cur_loss = self.models_[i].loss(cur_X, cur_y)
+            # y_pred = self.models_[i].predict(cur_X)
+            # cur_loss = self.models_[i].loss(cur_X, cur_y)
+            y_pred = self.models_[i].predict(X)
+            cur_loss = self.weighted_loss(y, y_pred, self.D_[i])
 
-            self.weights_[i] = np.log(1 / cur_loss - 1) / 2
+            # TODO: what to do if cur_loss==0
+            self.weights_[i] = np.log(1 / cur_loss - 1) / 2 #if cur_loss > 0 else 1
 
             if i+1 < self.iterations_:
+                # self.D_[i+1] = self.D_[i] * np.exp(-cur_y * self.weights_[i] * y_pred)
                 self.D_[i+1] = self.D_[i] * np.exp(-y * self.weights_[i] * y_pred)
                 self.D_[i+1] = self.D_[i+1] / self.D_[i+1].sum()
 
-                cur_X, cur_y = self.__resample(cur_X, cur_y, self.D_[i+1])
+                # cur_X, cur_y = self.__resample(X, y, self.D_[i+1])
+
+                # Resample
+                new_indices = np.random.choice(n_samples, size=n_samples, p=self.D_[i+1])
+                # cur_X, cur_y = cur_X[new_indices, :], cur_y[new_indices]
+                # self.D_[i+1] = self.D_[i+1, new_indices]
+                cur_X, cur_y = X[new_indices, :], y[new_indices]
+
 
     def _predict(self, X):
         """
@@ -162,8 +157,11 @@ class AdaBoost(BaseEstimator):
         """
         selected_models = self.models_[:T]
         all_learners_pred = np.array([m.predict(X) for m in selected_models]).T
-        weighted_pred = all_learners_pred @ self.weights_
-        return np.sign(weighted_pred.sum(axis=1))
+        weighted_pred = all_learners_pred @ self.weights_[:T]
+        if len(weighted_pred.shape) == 1:
+            return np.sign(weighted_pred)
+        else:
+            return np.sign(weighted_pred.sum(axis=1))
 
     def partial_loss(self, X: np.ndarray, y: np.ndarray, T: int) -> float:
         """
