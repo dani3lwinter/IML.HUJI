@@ -125,7 +125,8 @@ class DecisionStump(BaseEstimator):
         labels = labels[indx]
 
         best_thr = values[0]
-        misses = np.sum(labels != sign)
+        # misses = np.sum(labels != sign)
+        misses = np.where(labels*sign < 0, -labels*sign, 0).sum()
         least_misses = misses
 
         # allow the threshold to be a little above all samples
@@ -141,21 +142,6 @@ class DecisionStump(BaseEstimator):
 
         return best_thr, least_misses/labels.size
 
-        best_thr = 0
-        least_err = 1
-
-        for thr in np.unique(values):
-
-            # evaluate the misclassification error for this threshold
-            # prediction = np.full(labels.shape, sign)
-            prediction = np.where(values < thr, -sign, sign)
-            err = misclassification_error(labels, prediction, normalize=True)
-
-            if err < least_err:
-                least_err = err
-                best_thr = thr
-
-        return best_thr, least_err
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """

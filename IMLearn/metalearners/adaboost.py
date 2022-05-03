@@ -48,14 +48,13 @@ class AdaBoost(BaseEstimator):
         new_indices = np.random.choice(cur_y.size, size=cur_y.size, p=sample_weights)
         return cur_X[new_indices, :], cur_y[new_indices]
 
-    def weighted_loss(self, y_true, y_pred, sample_weights):
+    @staticmethod
+    def weighted_loss(y_true, y_pred, sample_weights):
         """
         Calculate the weighted loss for a given set of predictions
         """
         misses = np.where(y_true != y_pred, 1, 0)
         return np.sum(misses * sample_weights)
-        # return np.sum(sample_weights * ((1 - y_true * y_pred) / 2))
-
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -72,36 +71,28 @@ class AdaBoost(BaseEstimator):
         if len(X.shape) == 1:
             X = X.reshape((-1, 1))
         n_samples = X.shape[0]
-        self.D_ = np.zeros((self.iterations_, n_samples))
+
         self.models_ = [self.wl_() for _ in range(self.iterations_)]
+        self.D_ = np.full(n_samples, 1 / n_samples)
 
         cur_X, cur_y = X, y
-        self.D_[0] = np.full(n_samples, 1/n_samples)
 
         for i in range(self.iterations_):
             print(f"Fitting model {i+1}/{self.iterations_}", end="\r")
-            self.models_[i].fit(cur_X, cur_y)
-            # y_pred = self.models_[i].predict(cur_X)
-            # cur_loss = self.models_[i].loss(cur_X, cur_y)
+            self.models_[i].fit(cur_X, cur_y*self.D_)
+
             y_pred = self.models_[i].predict(X)
-            cur_loss = self.weighted_loss(y, y_pred, self.D_[i])
+            epsilon = self.weighted_loss(y, y_pred, self.D_)
 
-            # TODO: what to do if cur_loss==0
-            self.weights_[i] = np.log(1 / cur_loss - 1) / 2 #if cur_loss > 0 else 1
+            # TODO: what to do if epsilon==0
+            self.weights_[i] = np.log(1 / epsilon - 1) / 2  # if cur_loss > 0 else 1
 
-            if i+1 < self.iterations_:
-                # self.D_[i+1] = self.D_[i] * np.exp(-cur_y * self.weights_[i] * y_pred)
-                self.D_[i+1] = self.D_[i] * np.exp(-y * self.weights_[i] * y_pred)
-                self.D_[i+1] = self.D_[i+1] / self.D_[i+1].sum()
+            self.D_ = self.D_ * np.exp(-y * self.weights_[i] * y_pred)
+            self.D_ = self.D_ / np.sum(self.D_)
 
-                # cur_X, cur_y = self.__resample(X, y, self.D_[i+1])
-
-                # Resample
-                new_indices = np.random.choice(n_samples, size=n_samples, p=self.D_[i+1])
-                # cur_X, cur_y = cur_X[new_indices, :], cur_y[new_indices]
-                # self.D_[i+1] = self.D_[i+1, new_indices]
-                cur_X, cur_y = X[new_indices, :], y[new_indices]
-
+            # Resample
+            # new_indices = np.random.choice(n_samples, size=n_samples, p=self.D_)
+            # cur_X, cur_y = X[new_indices, :], y[new_indices]
 
     def _predict(self, X):
         """
