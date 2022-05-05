@@ -37,8 +37,7 @@ class AdaBoost(BaseEstimator):
         super().__init__()
         self.wl_ = wl
         self.iterations_ = iterations
-        self.models_, self.weights_, self.D_ = [], np.zeros(iterations), np.zeros(iterations)
-        self.D_ = np.zeros(iterations)
+        self.models_, self.weights_, self.D_ = None, None, None
 
     @staticmethod
     def __resample(cur_X, cur_y, sample_weights):
@@ -74,25 +73,25 @@ class AdaBoost(BaseEstimator):
 
         self.models_ = [self.wl_() for _ in range(self.iterations_)]
         self.D_ = np.full(n_samples, 1 / n_samples)
-
-        cur_X, cur_y = X, y
+        self.weights_ = np.zeros(self.iterations_)
 
         for i in range(self.iterations_):
-            print(f"Fitting model {i+1}/{self.iterations_}", end="\r")
-            self.models_[i].fit(cur_X, cur_y*self.D_)
+            self.models_[i].fit(X, y * self.D_)
 
             y_pred = self.models_[i].predict(X)
             epsilon = self.weighted_loss(y, y_pred, self.D_)
 
-            # TODO: what to do if epsilon==0
+            # if loss is 0, then we have a perfect classifier
+            if epsilon == 0:
+                self.weights_ = np.zeros(self.iterations_)
+                self.weights_[i] = 1
+                self.iterations_ = i + 1
+                break
+
             self.weights_[i] = np.log(1 / epsilon - 1) / 2  # if cur_loss > 0 else 1
 
             self.D_ = self.D_ * np.exp(-y * self.weights_[i] * y_pred)
             self.D_ = self.D_ / np.sum(self.D_)
-
-            # Resample
-            # new_indices = np.random.choice(n_samples, size=n_samples, p=self.D_)
-            # cur_X, cur_y = X[new_indices, :], y[new_indices]
 
     def _predict(self, X):
         """
@@ -146,6 +145,7 @@ class AdaBoost(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
+        T = min(T, self.iterations_)
         selected_models = self.models_[:T]
         all_learners_pred = np.array([m.predict(X) for m in selected_models]).T
         weighted_pred = all_learners_pred @ self.weights_[:T]

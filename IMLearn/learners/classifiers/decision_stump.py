@@ -125,23 +125,23 @@ class DecisionStump(BaseEstimator):
         labels = labels[indx]
 
         best_thr = values[0]
-        # misses = np.sum(labels != sign)
         misses = np.where(labels*sign < 0, -labels*sign, 0).sum()
         least_misses = misses
 
         # allow the threshold to be a little above all samples
-        np.append(values, values[-1] + np.abs(0.01 * values[-1]))
+        values = np.append(values, values[-1] + np.abs(0.01 * values[-1]) + 0.0001)
 
         for i in range(1, len(values)):
             # when the threshold is value[i],
-            # label[i-1] is a miss iff  label[i-1]*(-sign) = -1 iff label[i-1]*sign = 1
-            misses += labels[i-1]*sign
-            if misses < least_misses:
+            # label[i-1] is a miss iff label[i-1]*(-sign) = -1 iff label[i-1]*sign = 1
+            misses += labels[i-1] * sign
+
+            # take the best threshold only if it's a new unique value
+            if values[i] != values[i-1] and misses < least_misses:
                 least_misses = misses
                 best_thr = values[i]
 
-        return best_thr, least_misses/labels.size
-
+        return best_thr, least_misses
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -160,4 +160,4 @@ class DecisionStump(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        return misclassification_error(y, self._predict(X), normalize=True)
+        return misclassification_error(np.sign(y), self._predict(X), normalize=True)
