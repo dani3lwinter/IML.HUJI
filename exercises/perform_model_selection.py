@@ -16,6 +16,29 @@ from plotly.subplots import make_subplots
 pio.renderers.default = "browser"
 
 
+
+
+def run_cross_validation(estimator_ctr, X, y, theta_range, param_name):
+    train_errors = np.empty(len(theta_range))
+    valid_errors = np.empty(len(theta_range))
+    for i, t in enumerate(theta_range):
+        estimator = estimator_ctr(**{param_name: t})
+        train_errors[i], valid_errors[i] = \
+            cross_validate(estimator, X, y, mean_square_error)
+    return train_errors, valid_errors
+
+
+def plot_cross_validation_error(x, train_errors, valid_errors, title):
+    fig = go.Figure(data=[go.Scatter(x=x, y=train_errors, name="Training Error"),
+                          go.Scatter(x=x, y=valid_errors, name="Validation Error")],
+                    layout=go.Layout(title=title,
+                                     xaxis_title='Lambda (regularization parameter)',
+                                     yaxis_title='Error'))
+    if len(x) < 20:
+        fig.update_xaxes(type='category')
+    fig.show()
+
+
 def select_polynomial_degree(n_samples: int = 100, noise: float = 5):
     """
     Simulate data from a polynomial model and use cross-validation to select the best fitting degree
@@ -34,6 +57,7 @@ def select_polynomial_degree(n_samples: int = 100, noise: float = 5):
     response = lambda x: (x + 3) * (x + 2) * (x + 1) * (x - 1) * (x - 2)
 
     x = np.linspace(-1.2, 2, n_samples)
+    np.random.shuffle(x)
     y_noiseless = response(x)
     y = y_noiseless + np.random.normal(0, noise_std, size=len(y_noiseless))
     combined_y = np.vstack([y, y_noiseless]).T
@@ -50,22 +74,21 @@ def select_polynomial_degree(n_samples: int = 100, noise: float = 5):
 
     # Question 2 - Perform CV for polynomial fitting with degrees 0,1,...,10
     degrees = np.arange(11)
-    train_errors = np.empty(len(degrees))
-    valid_errors = np.empty(len(degrees))
-    for i, k in enumerate(degrees):
-        estimator = PolynomialFitting(k)
-        train_errors[i], valid_errors[i] =\
-            cross_validate(estimator, train_x, train_y[:, noisy], mean_square_error)
+    train_errors, valid_errors = run_cross_validation(PolynomialFitting,
+                                                      train_x, train_y[:, noisy],
+                                                      theta_range=degrees,
+                                                      param_name='k')
+    # train_errors = np.empty(len(degrees))
+    # valid_errors = np.empty(len(degrees))
+    # for i, k in enumerate(degrees):
+    #     estimator = PolynomialFitting(k)
+    #     train_errors[i], valid_errors[i] =\
+    #         cross_validate(estimator, train_x, train_y[:, noisy], mean_square_error)
 
     # Plot for each value of k the average training- and validation errors
-    fig = go.Figure(data=[go.Scatter(x=degrees, y=train_errors, name="Training Error"),
-                          go.Scatter(x=degrees, y=valid_errors, name="Validation Error")],
-                    layout=go.Layout(title='Cross validation Error as function of Polynomial Degree<br>' +
-                                           f'Noise Variance = {noise}, Sample Size = {n_samples}',
-                                     xaxis_title='Fitted Polynomial Degree',
-                                     yaxis_title='Error'))
-    fig.update_xaxes(type='category')
-    fig.show()
+    plot_cross_validation_error(degrees, train_errors, valid_errors,
+                                title='Cross validation Error as function of Polynomial Degree<br>' +
+                                      f'Noise Variance = {noise}, Sample Size = {n_samples}')
 
     # Question 3 - Using best value of k, fit a k-degree polynomial model and report test error
     best_k = degrees[np.argmin(valid_errors)]
@@ -80,15 +103,6 @@ def select_polynomial_degree(n_samples: int = 100, noise: float = 5):
     loss = mean_square_error(y_test, y_pred)
     print(f"The test error with that degree is {loss: .2f}")
 
-
-def run_cross_validation(estimator_ctr, X, y, theta_range, param_name):
-    train_errors = np.empty(len(theta_range))
-    valid_errors = np.empty(len(theta_range))
-    for i, t in enumerate(theta_range):
-        estimator = estimator_ctr(**{param_name: t})
-        train_errors[i], valid_errors[i] = \
-            cross_validate(estimator, X, y, mean_square_error)
-    return train_errors, valid_errors
 
 def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 500):
     """
@@ -110,16 +124,48 @@ def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 50
     test_x, test_y = np.array(test_x), np.array(test_y)
 
     # Question 7 - Perform CV for different values of the regularization parameter for Ridge and Lasso regressions
-    lambdas = np.arrange(n_evaluations)
-    train_errors = np.empty(len(lambdas))
-    valid_errors = np.empty(len(lambdas))
-    for i, k in enumerate(lambdas):
-        estimator = PolynomialFitting(k)
-        train_errors[i], valid_errors[i] = \
-            cross_validate(estimator, train_x, train_y, mean_square_error)
+    lambdas = np.linspace(0, 0.2, n_evaluations)
+    # === Ridge model ===
+    train_errors, valid_errors = run_cross_validation(RidgeRegression,
+                                                      train_x, train_y,
+                                                      theta_range=lambdas,
+                                                      param_name='lam')
+    ridge_best_l = lambdas[np.argmin(valid_errors)]
+    plot_cross_validation_error(lambdas, train_errors, valid_errors,
+                                title='Ridge Regularization - Cross validation Error as function of lambda<br>' +
+                                      f'Number of parameters = {n_evaluations}, Sample Size = {n_samples}')
+
+    # === Lasso model ===
+    train_errors, valid_errors = run_cross_validation(Lasso,
+                                                      train_x, train_y,
+                                                      theta_range=lambdas,
+                                                      param_name='alpha')
+
+    lasso_best_l = lambdas[np.argmin(valid_errors)]
+    plot_cross_validation_error(lambdas, train_errors, valid_errors,
+                                title='Lasso Regularization - Cross validation Error as function of lambda<br>' +
+                                      f'Number of parameters = {n_evaluations}, Sample Size = {n_samples}')
 
     # Question 8 - Compare best Ridge model, best Lasso model and Least Squares model
-    raise NotImplementedError()
+    print(" ==== Ridge model ====")
+    print(f"Best lambda is {ridge_best_l: .3f}")
+    estimator = RidgeRegression(lam=ridge_best_l)
+    estimator.fit(train_x, train_y)
+
+    # evaluate the best degree with test set
+    y_pred = estimator.predict(test_x)
+    loss = mean_square_error(test_y, y_pred)
+    print(f"The test error with that lambda is {loss: .3f}\n")
+
+    print(" ==== Lasso model ====")
+    print(f"Best lambda is {lasso_best_l: .3f}")
+    estimator = Lasso(alpha=lasso_best_l)
+    estimator.fit(train_x, train_y)
+
+    # evaluate the best degree with test set
+    y_pred = estimator.predict(test_x)
+    loss = mean_square_error(test_y, y_pred)
+    print(f"The test error with that lambda is {loss: .3f}")
 
 
 if __name__ == '__main__':
