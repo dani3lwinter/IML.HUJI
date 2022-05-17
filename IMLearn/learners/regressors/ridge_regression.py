@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import NoReturn
 from ...base import BaseEstimator
+from IMLearn.learners.regressors.linear_regression import LinearRegression
 import numpy as np
 
 
@@ -42,6 +43,18 @@ class RidgeRegression(BaseEstimator):
         self.coefs_ = None
         self.include_intercept_ = include_intercept
         self.lam_ = lam
+        self.regressor_ = LinearRegression(include_intercept=False)
+
+    def __x_with_intercept(self, X: np.ndarray) -> np.ndarray:
+        """
+            if include_intercept is True, returns X with leading column of ones,
+            otherwise, returns X as is.
+        """
+        num_of_samples = X.shape[0]
+        if self.include_intercept_:
+            return np.c_[np.ones(num_of_samples), X]
+        else:
+            return X
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -59,7 +72,11 @@ class RidgeRegression(BaseEstimator):
         -----
         Fits model with or without an intercept depending on value of `self.include_intercept_`
         """
-        raise NotImplementedError()
+        X = self.__x_with_intercept(X)
+        n_samples, n_features = X.shape
+        design_mat = np.r_[X, np.identity(n_features) * np.sqrt(self.lam_)]
+        target = np.r_[y, np.zeros(n_features)]
+        self.regressor_.fit(design_mat, target)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -75,7 +92,8 @@ class RidgeRegression(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        X = self.__x_with_intercept(X)
+        return self.regressor_.predict(X)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -94,4 +112,5 @@ class RidgeRegression(BaseEstimator):
         loss : float
             Performance under MSE loss function
         """
-        raise NotImplementedError()
+        X = self.__x_with_intercept(X)
+        return self.regressor_.loss(X, y)

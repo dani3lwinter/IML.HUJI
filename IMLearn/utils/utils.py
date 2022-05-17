@@ -33,11 +33,11 @@ def split_train_test(X: pd.DataFrame, y: pd.Series, train_proportion: float = .7
         Responses of test samples
 
     """
-    train_size = int(train_proportion * y.size)
+    train_size = int(train_proportion * len(y))
 
     # select train_size random indices
-    train_indices = np.random.choice(range(y.size), train_size, replace=False)
-    train_mask = np.array([False] * y.size)
+    train_indices = np.random.choice(range(len(y)), train_size, replace=False)
+    train_mask = np.array([False] * len(y))
     train_mask[train_indices] = True
 
     train_x = X[train_mask]
