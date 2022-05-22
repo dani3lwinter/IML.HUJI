@@ -44,6 +44,13 @@ def split_train_test(X: pd.DataFrame, y: pd.Series, train_proportion: float = .7
     train_y = y[train_mask]
     test_x = X[~train_mask]
     test_y = y[~train_mask]
+
+    # rand_seed = np.random.randint(1, 100)
+    # train_X = X.sample(frac=train_proportion, random_state=rand_seed)
+    # train_y = y.sample(frac=train_proportion, random_state=rand_seed)
+    # test_X = X.drop(train_X.index).sample(frac=1, random_state=rand_seed)
+    # test_y = y.drop(train_y.index).sample(frac=1, random_state=rand_seed)
+    # return train_X, train_y, test_X, test_y
     return train_x, train_y, test_x, test_y
 
 
