@@ -40,7 +40,6 @@ def cross_validate(estimator: BaseEstimator, X: np.ndarray, y: np.ndarray,
     unfitted_est = deepcopy(estimator)
     n_samples = X.shape[0]
     indices = np.arange(n_samples)
-    # indices = np.random.choice(n_samples, size=n_samples, replace=False)
 
     # split the indices to cv folds
     indices_folds = np.array_split(indices, cv)

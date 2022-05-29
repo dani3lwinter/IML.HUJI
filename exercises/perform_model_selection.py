@@ -56,16 +56,12 @@ def select_polynomial_degree(n_samples: int = 100, noise: float = 5):
     x = np.linspace(-1.2, 2, n_samples)
     np.random.shuffle(x)
     np.random.shuffle(x)
-    # np.random.shuffle(x)
+
     y_noiseless = response(x)
     y = y_noiseless + np.random.normal(0, noise, size=len(y_noiseless))
 
     train_x, train_y, test_x, test_y = split_train_test(x, y, 2/3)
     train_x, test_x = np.array(train_x), np.array(test_x)
-
-    # train_x, train_y, test_x, test_y = split_train_test(pd.DataFrame(x), pd.Series(y), 2 / 3)
-    # train_x, test_x = train_x.squeeze().to_numpy(), test_x.squeeze().to_numpy()
-    # train_y, test_y = train_y.to_numpy(), test_y.to_numpy()
 
     x_noiseless = np.linspace(x.min(), x.max(), 200)
     fig = go.Figure(data=[go.Scatter(x=x_noiseless, y=response(x_noiseless),
