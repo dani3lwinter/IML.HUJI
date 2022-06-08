@@ -74,8 +74,12 @@ class RidgeRegression(BaseEstimator):
         """
         X = self.__x_with_intercept(X)
         n_samples, n_features = X.shape
-        design_mat = np.r_[X, np.identity(n_features) * np.sqrt(self.lam_)]
-        target = np.r_[y, np.zeros(n_features)]
+        if self.include_intercept_:
+            design_mat = np.r_[X, np.identity(n_features)[1:] * np.sqrt(self.lam_)]
+            target = np.r_[y, np.zeros(n_features - 1)]
+        else:
+            design_mat = np.r_[X, np.identity(n_features) * np.sqrt(self.lam_)]
+            target = np.r_[y, np.zeros(n_features)]
         self.regressor_.fit(design_mat, target)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:

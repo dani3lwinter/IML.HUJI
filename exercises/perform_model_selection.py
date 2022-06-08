@@ -114,14 +114,13 @@ def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 50
     """
     # Question 6 - Load diabetes dataset and split into training and testing portions
     X, y = datasets.load_diabetes(return_X_y=True)
-    train_x, train_y, test_x, test_y = split_train_test(X, y, n_samples/len(y))
-    train_x, train_y = np.array(train_x), np.array(train_y)
-    test_x, test_y = np.array(test_x), np.array(test_y)
+    train_x, train_y = X[:n_samples], y[:n_samples]
+    test_x, test_y = X[n_samples:], y[n_samples:]
 
     # Question 7 - Perform CV for different values of the regularization parameter for Ridge and Lasso regressions
-    lambdas = np.linspace(0, 0.2, n_evaluations)
-    # lambdas = np.logspace(-4, -0.5, n_evaluations)
+
     # === Ridge model ===
+    lambdas = np.linspace(0, 0.5, n_evaluations)
     train_errors, valid_errors = run_cross_validation(RidgeRegression,
                                                       train_x, train_y,
                                                       theta_range=lambdas,
@@ -133,6 +132,7 @@ def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 50
                                 xaxis_title='Lambda (regularization parameter)')
 
     # === Lasso model ===
+    lambdas = np.linspace(0, 2, n_evaluations)
     train_errors, valid_errors = run_cross_validation(Lasso,
                                                       train_x, train_y,
                                                       theta_range=lambdas,
