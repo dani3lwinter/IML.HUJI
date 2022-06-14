@@ -201,8 +201,8 @@ class RegularizedModule(BaseModule):
         self.fidelity_module_, self.regularization_module_, self.lam_ = fidelity_module, regularization_module, lam
         self.include_intercept_ = include_intercept
 
-        if weights:
-            self.weights(weights)
+        if weights is not None:
+            self.weights = weights
 
     def compute_output(self, **kwargs) -> np.ndarray:
         """
@@ -219,7 +219,7 @@ class RegularizedModule(BaseModule):
             Value of function at point self.weights
         """
         fidelity_term = self.fidelity_module_.compute_output(**kwargs)
-        reg_term = self.lam_ * self.regularization_module_.compute_output(**kwargs)
+        reg_term = self.regularization_module_.compute_output(**kwargs)
         return fidelity_term + self.lam_ * reg_term
 
     def compute_jacobian(self, **kwargs) -> np.ndarray:
@@ -238,6 +238,8 @@ class RegularizedModule(BaseModule):
         """
         fidelity_term = self.fidelity_module_.compute_jacobian(**kwargs)
         reg_term = self.lam_ * self.regularization_module_.compute_jacobian(**kwargs)
+        if self.include_intercept_:
+            reg_term = np.concatenate(([0], reg_term))
         return fidelity_term + self.lam_ * reg_term
 
     @property
@@ -266,4 +268,4 @@ class RegularizedModule(BaseModule):
         """
         self.weights_ = weights
         self.fidelity_module_.weights = weights
-        self.regularization_module_.weights = weights[1:]
+        self.regularization_module_.weights = weights[1:] if self.include_intercept_ else weights

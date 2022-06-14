@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List, Callable, Type
 
-import sklearn.linear_model
-
 import IMLearn.desent_methods.modules
 from IMLearn import BaseModule
 from IMLearn.desent_methods import GradientDescent, FixedLR, ExponentialLR
@@ -197,7 +195,7 @@ def load_data(path: str = "../datasets/SAheart.data", train_portion: float = .8)
     return split_train_test(df.drop(['chd', 'row.names'], axis=1), df.chd, train_portion)
 
 
-def plot_roc_curve(y_true: np.ndarray, y_proba: np.ndarray, title: str):
+def my_plot_roc_curve(y_true: np.ndarray, y_proba: np.ndarray, title: str):
     """
     Plot ROC curve for a given set of predictions and true labels
 
@@ -245,18 +243,12 @@ def plot_roc_curve(y_true: np.ndarray, y_proba: np.ndarray, title: str):
     fig.show()
 
 
-def fit_logistic_regression():
-    # Load and split SA Heard Disease dataset
-    X_train, y_train, X_test, y_test = load_data()
-
-    # Plotting convergence rate of logistic regression over SA heart disease data
+def plot_roc_curve(y_true, y_proba):
+    """
+    Plot ROC curve for a given set of predictions and true labels
+    """
     from sklearn.metrics import roc_curve, auc
-
-    estimator = LogisticRegression()
-    from sklearn.linear_model import LogisticRegression as LR
-    estimator = LR(penalty='none')
-    estimator.fit(X_train, y_train)
-    fpr, tpr, thresholds = roc_curve(y_test, estimator.predict_proba(X_test)[:,0])
+    fpr, tpr, thresholds = roc_curve(y_true, y_proba)
 
     fig = go.Figure(
         data=[go.Scatter(x=[0, 1], y=[0, 1], mode="lines",
@@ -269,6 +261,20 @@ def fit_logistic_regression():
                          xaxis=dict(title=r"$\text{False Positive Rate (FPR)}$"),
                          yaxis=dict(title=r"$\text{True Positive Rate (TPR)}$")))
     fig.show()
+
+def fit_logistic_regression():
+    # Load and split SA Heard Disease dataset
+    X_train, y_train, X_test, y_test = load_data()
+
+    # Plotting convergence rate of logistic regression over SA heart disease data
+    from sklearn.metrics import roc_curve, auc
+
+    estimator = LogisticRegression(penalty='l2')
+    # from sklearn.linear_model import LogisticRegression as LR
+    # estimator = LR(penalty='none', solver='newton-cg')
+    estimator.fit(X_train, y_train)
+    plot_roc_curve(y_test, estimator.predict_proba(X_test))
+    # plot_roc_curve(y_test, estimator.predict_proba(X_test)[:, 0])
 
     # plot_roc_curve(np.array(y_test), estimator.predict_proba(X_test)[:,0], "My roc")
 
