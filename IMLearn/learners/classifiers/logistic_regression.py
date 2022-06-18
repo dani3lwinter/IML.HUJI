@@ -112,7 +112,7 @@ class LogisticRegression(BaseEstimator):
         """
         X = self._x_with_intercept(X)
         n_samples, n_features = X.shape
-        init_weights = np.random.normal(0, 1, n_features)
+        init_weights = np.random.normal(0, 1 / n_features, n_features) # np.zeros(n_features)+ 0.1 #
         module = self._get_model(init_weights)
         self.coefs_ = self.solver_.fit(module, X, y)
 

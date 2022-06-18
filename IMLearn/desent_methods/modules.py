@@ -136,10 +136,6 @@ class LogisticModule(BaseModule):
         Xw = X @ self.weights
         # the book version
         f = - (Xw @ y - np.log(1 + np.exp(Xw)).sum()) / n_samples
-
-        # doc version: f(w) = - (1/m) sum_i^m[y*<x_i,w> - log(sigmoid(<x_i,w>))]
-        # e_to_Xw = np.power(np.e, Xw)
-        # f = - (Xw @ y - e_to_Xw @ np.log(1 + e_to_Xw)) / n_samples
         return f
 
     def compute_jacobian(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
@@ -159,7 +155,15 @@ class LogisticModule(BaseModule):
         output: ndarray of shape (n_features,)
             Derivative of function with respect to self.weights at point self.weights
         """
-        sigmoid = 1 / (1 + np.exp(-X @ self.weights))
+        Xw = X @ self.weights
+        # def sigmoid(value):
+        #     if -value > np.log(np.finfo(type(value)).max):
+        #         return 0.0
+        #     a = np.exp(-value)
+        #     return 1.0 / (1.0 + a)
+        #
+        # sigmoid_vec = np.array([sigmoid(v) for v in Xw])
+        sigmoid = 1 / (1 + np.exp(-Xw))
         n_samples = X.shape[0]
         return ((sigmoid - y) @ X) / n_samples
 
@@ -266,6 +270,6 @@ class RegularizedModule(BaseModule):
         weights: ndarray of shape (n_in, n_out)
             Weights to set for module
         """
-        self.weights_ = weights
-        self.fidelity_module_.weights = weights
-        self.regularization_module_.weights = weights[1:] if self.include_intercept_ else weights
+        self.weights_ = weights.copy()
+        self.fidelity_module_.weights = self.weights_
+        self.regularization_module_.weights = self.weights_[1:] if self.include_intercept_ else self.weights_

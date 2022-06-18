@@ -123,7 +123,7 @@ class GradientDescent:
         best_w = f.weights
         best_loss = f.compute_output(X=X, y=y)
         prev_w = f.weights
-        actual_iter = 1
+        actual_iter = self.max_iter_ + 1
         for t in range(self.max_iter_):
             # advance w
             eta = self.learning_rate_.lr_step(t=t)
@@ -136,7 +136,7 @@ class GradientDescent:
             # call the callback
             delta = np.linalg.norm(prev_w - f.weights)
 
-            self.callback_(self,
+            self.callback_(gd=self,
                            weights=f.weights,
                            val=f.compute_output(X=X, y=y),
                            grad=f.compute_jacobian(X=X, y=y),

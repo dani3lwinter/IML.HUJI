@@ -7,6 +7,9 @@ from IMLearn import BaseModule
 from IMLearn.desent_methods import GradientDescent, FixedLR, ExponentialLR
 from IMLearn.desent_methods.modules import L1, L2
 from IMLearn.learners.classifiers.logistic_regression import LogisticRegression
+
+from IMLearn.metrics import misclassification_error
+from IMLearn.model_selection import cross_validate
 from IMLearn.utils import split_train_test
 
 import plotly.graph_objects as go
@@ -262,25 +265,80 @@ def plot_roc_curve(y_true, y_proba):
                          yaxis=dict(title=r"$\text{True Positive Rate (TPR)}$")))
     fig.show()
 
+    best_alpha_index = np.argmax(tpr - fpr)
+    print("Best threshold: alpha=", thresholds[best_alpha_index])
+    print("Achieved test error:", tpr[best_alpha_index]- fpr[best_alpha_index], end='\n\n')
+
 def fit_logistic_regression():
     # Load and split SA Heard Disease dataset
     X_train, y_train, X_test, y_test = load_data()
+    X_train, X_test = X_train.to_numpy(), X_test.to_numpy()
+    y_train, y_test = y_train.to_numpy(), y_test.to_numpy()
 
     # Plotting convergence rate of logistic regression over SA heart disease data
-    from sklearn.metrics import roc_curve, auc
+    callback, values, weights = get_gd_state_recorder_callback()
+    # gd = GradientDescent(callback=callback, max_iter=3000, out_type='best')
+    gd = GradientDescent(FixedLR(1e-4), max_iter=20_000, callback=callback)
+    # gd = GradientDescent()
+    estimator = LogisticRegression(solver=gd)
+    estimator.fit(X_train, y_train)
+    plot_roc_curve(y_train, estimator.predict_proba(X_train))
 
-    estimator = LogisticRegression(penalty='l2')
+    convergence_rate_fig = go.Figure(
+        layout=go.Layout(
+            xaxis_title=r'$\text{Number of Iteration }(t)$',
+            yaxis_title=r'$ - \ell(w^t|X,y)$',
+            title=r"$\text{Convergence Rate: } - \ell(w^t|X,y)\text{ as a function of } t \text{ the GD iteration}$"),
+        data=[go.Scatter(y=values, x=np.arange(1, len(values) + 1),
+                         mode="lines", name='')]
+    )
+    convergence_rate_fig.show()
+
     # from sklearn.linear_model import LogisticRegression as LR
     # estimator = LR(penalty='none', solver='newton-cg')
-    estimator.fit(X_train, y_train)
-    plot_roc_curve(y_test, estimator.predict_proba(X_test))
+    # estimator.fit(X_train, y_train)
     # plot_roc_curve(y_test, estimator.predict_proba(X_test)[:, 0])
+
 
     # plot_roc_curve(np.array(y_test), estimator.predict_proba(X_test)[:,0], "My roc")
 
     # Fitting l1- and l2-regularized logistic regression models, using cross-validation to specify values
     # of regularization parameter
-    # raise NotImplementedError()
+    for penalty in ['l1', 'l2']: # : []: #
+        print(f"==== Testing {penalty} penalty ====")
+
+        lambdas = np.array([0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1])
+        train_err = np.empty(len(lambdas))
+        valid_err = np.empty(len(lambdas))
+        for i, lam in enumerate(lambdas):
+            callback, values, weights = get_gd_state_recorder_callback()
+            gd = GradientDescent(FixedLR(1e-4), callback=callback, max_iter=20_000, out_type='average')
+            estimator = LogisticRegression(solver=gd, penalty=penalty, lam=lam)
+            train_err[i], valid_err[i] = cross_validate(estimator, X_train, y_train, misclassification_error)
+
+            convergence_rate_fig = go.Figure(
+                layout=go.Layout(
+                    xaxis_title=r'$\text{Number of Iteration }(t)$',
+                    yaxis_title=r'$\text{Logistic Loss}$',
+                    title=exp_lr_fig_title),
+                data=[go.Scatter(y=values, x=np.arange(1, len(values) + 1),
+                       mode="lines", name=rf"$\penalty={penalty}$")]
+            )
+            convergence_rate_fig.show()
+
+        # plot the cv error
+        fig = go.Figure(data=[go.Scatter(x=lambdas, y=train_err, name="Training Error"),
+                              go.Scatter(x=lambdas, y=valid_err, name="Validation Error")],
+                        layout=go.Layout(title='Cross validation Error as function of lambda, using '+penalty,
+                                         xaxis_title='lambda',
+                                         yaxis_title='misclassification error'))
+        fig.show()
+
+        best_lam_index = valid_err.argmin()
+        print(f"Best lambda is {lambdas[best_lam_index]}")
+        print(f"Achieved misclassification rate of {valid_err[best_lam_index]}\n")
+
+
 
 
 if __name__ == '__main__':
