@@ -92,7 +92,6 @@ class LogisticRegression(BaseEstimator):
         reg_module = L1() if self.penalty_ == 'l1' else L2()
         return RegularizedModule(LogisticModule(), reg_module, self.lam_, weights, self.include_intercept_)
 
-
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
         Fit Logistic regression model to given samples
@@ -112,7 +111,7 @@ class LogisticRegression(BaseEstimator):
         """
         X = self._x_with_intercept(X)
         n_samples, n_features = X.shape
-        init_weights = np.random.normal(0, 1 / n_features, n_features) # np.zeros(n_features)+ 0.1 #
+        init_weights = np.random.normal(0, 1, n_features) / np.sqrt(n_features)
         module = self._get_model(init_weights)
         self.coefs_ = self.solver_.fit(module, X, y)
 

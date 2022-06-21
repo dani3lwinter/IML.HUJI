@@ -10,8 +10,9 @@ from IMLearn.learners.classifiers.logistic_regression import LogisticRegression
 
 from IMLearn.metrics import misclassification_error
 from IMLearn.model_selection import cross_validate
-from IMLearn.utils import split_train_test
+from sklearn.model_selection import train_test_split
 
+from utils import decision_surface
 import plotly.graph_objects as go
 import plotly.io as pio
 pio.renderers.default = "browser"
@@ -56,7 +57,7 @@ def plot_descent_path(module: Type[BaseModule],
     def predict_(w):
         return np.array([module(weights=wi).compute_output() for wi in w])
 
-    from utils import decision_surface
+
     return go.Figure([decision_surface(predict_, xrange=xrange, yrange=yrange, density=70, showscale=False),
                       go.Scatter(x=descent_path[:, 0], y=descent_path[:, 1], mode="markers+lines", marker_color="black")],
                      layout=go.Layout(xaxis=dict(range=xrange),
@@ -91,17 +92,16 @@ def get_gd_state_recorder_callback() -> Tuple[Callable[[], None], List[np.ndarra
     return callback, values, weights
 
 
-fixed_lr_fig_title = r"$\text{{Convergence Rate - The }}{0} \text{{ norm as a function of the GD iteration}}<br>" \
+fixed_lr_fig_title = r"$\text{{Convergence Rate - The }}{0} \text{{ norm as a function of the GD iteration}}\\" \
                      r"\text{{Using fixed learning rate }}\eta$"
 
 MODELS = [L1, L2]
 MODEL_NAMES = [r'\ell_1', r'\ell_2^2']
-# MODELS = [IMLearn.desent_methods.modules.LogisticModule]
-# MODEL_NAMES = [r'logistic']
+
 
 def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e / 3]),
                                  etas: Tuple[float] = (1, .1, .01, .001)):
-
+    print(f"=== Testing fixed learning rates ===")
     # etas = [0.01]
     for model, model_name in zip(MODELS, MODEL_NAMES):
 
@@ -110,6 +110,7 @@ def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e /
             yaxis_title='Norm',
             title=fixed_lr_fig_title.format(model_name)))
 
+        print(f"Model Name\teta\tMin Norm")
         for eta in etas:
             callback, values, weights = get_gd_state_recorder_callback()
             gd = GradientDescent(FixedLR(eta), callback=callback)
@@ -118,11 +119,12 @@ def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e /
             # plot descent path
             title = rf"\text{{of }}{model_name}\text{{ model, using fixed }}\eta={eta}"
             fig = plot_descent_path(model, np.array(weights), title=title)
-            # fig.show()
+            fig.show()
 
             # plot convergence rate
             convergence_rate_fig.add_trace(go.Scatter(y=values, x=np.arange(1, len(values)+1),
                                                       mode="lines", name=rf"$\eta={eta}$"))
+            print(f"{model_name:<10}\t\t{eta:<6}\t{np.min(values):.3f}")
 
         convergence_rate_fig.show()
 
@@ -141,6 +143,8 @@ def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.
         yaxis_title=r'$\ell_1\text{ Norm}$',
         title=exp_lr_fig_title))
 
+    print(f"=== Testing exponential decay rate ===")
+    print(f" gamma  | l1 norm")
     for gamma in gammas:
         callback, values, weights = get_gd_state_recorder_callback()
         gd = GradientDescent(ExponentialLR(eta, gamma), callback=callback)
@@ -149,6 +153,8 @@ def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.
         # plot convergence rate
         convergence_rate_fig.add_trace(go.Scatter(y=values, x=np.arange(1, len(values) + 1),
                                                   mode="lines", name=rf"$\gamma={gamma}$"))
+
+        print(f" {gamma:<6} | \t{np.min(values)}")
 
     # Plot algorithm's convergence for the different values of gamma
     convergence_rate_fig.show()
@@ -195,10 +201,11 @@ def load_data(path: str = "../datasets/SAheart.data", train_portion: float = .8)
     """
     df = pd.read_csv(path)
     df.famhist = (df.famhist == 'Present').astype(int)
-    return split_train_test(df.drop(['chd', 'row.names'], axis=1), df.chd, train_portion)
+    X_train, X_test, y_train, y_test = train_test_split(df.drop(['chd', 'row.names'], axis=1), df.chd, train_size=train_portion)
+    return X_train, y_train, X_test, y_test
 
 
-def my_plot_roc_curve(y_true: np.ndarray, y_proba: np.ndarray, title: str):
+def calc_roc_curve(y_true: np.ndarray, y_proba: np.ndarray):
     """
     Plot ROC curve for a given set of predictions and true labels
 
@@ -237,16 +244,11 @@ def my_plot_roc_curve(y_true: np.ndarray, y_proba: np.ndarray, title: str):
             tpr_vec[i+1] = tp / (tp + fn)
             fpr_vec[i+1] = fpr_vec[i]
 
-    fig = go.Figure(data=[go.Scatter(x=fpr_vec, y=tpr_vec, mode="lines", name="ROC curve"),
-                          go.Scatter(x=[0, 1], y=[0, 1], mode="lines",
-                                     line=dict(color="black", dash='dash'),
-                                     name="Random Class Assignment")
-                          ],
-                    layout=go.Layout(title=title, xaxis_title="False Positive Rate", yaxis_title="True Positive Rate"))
-    fig.show()
+    thresholds, indices = np.unique(y_proba, return_index=True)
+    return fpr_vec[indices], tpr_vec[indices], thresholds
 
 
-def plot_roc_curve(y_true, y_proba):
+def plot_roc_curve(y_true, y_proba, title):
     """
     Plot ROC curve for a given set of predictions and true labels
     """
@@ -260,14 +262,14 @@ def plot_roc_curve(y_true, y_proba):
               go.Scatter(x=fpr, y=tpr, mode='markers+lines',
                          text=thresholds, name="", showlegend=False, marker_size=5,
                          hovertemplate="<b>Threshold:</b>%{text:.3f}<br>FPR: %{x:.3f}<br>TPR: %{y:.3f}")],
-        layout=go.Layout(title=rf"$\text{{ROC Curve Of Fitted Model - AUC}}={auc(fpr, tpr):.6f}$",
+        layout=go.Layout(title=rf"$\text{{ROC Curve: {title}, AUC}}={auc(fpr, tpr):.4f}$",
                          xaxis=dict(title=r"$\text{False Positive Rate (FPR)}$"),
                          yaxis=dict(title=r"$\text{True Positive Rate (TPR)}$")))
     fig.show()
 
     best_alpha_index = np.argmax(tpr - fpr)
-    print("Best threshold: alpha=", thresholds[best_alpha_index])
-    print("Achieved test error:", tpr[best_alpha_index]- fpr[best_alpha_index], end='\n\n')
+    return thresholds[best_alpha_index]
+
 
 def fit_logistic_regression():
     # Load and split SA Heard Disease dataset
@@ -276,55 +278,31 @@ def fit_logistic_regression():
     y_train, y_test = y_train.to_numpy(), y_test.to_numpy()
 
     # Plotting convergence rate of logistic regression over SA heart disease data
-    callback, values, weights = get_gd_state_recorder_callback()
-    # gd = GradientDescent(callback=callback, max_iter=3000, out_type='best')
-    gd = GradientDescent(FixedLR(1e-4), max_iter=20_000, callback=callback)
-    # gd = GradientDescent()
+    gd = GradientDescent(FixedLR(1e-4), max_iter=20_000)
     estimator = LogisticRegression(solver=gd)
     estimator.fit(X_train, y_train)
-    plot_roc_curve(y_train, estimator.predict_proba(X_train))
+    best_alpha = plot_roc_curve(y_train, estimator.predict_proba(X_train),
+                   title='Logistic Regression without regularization')
 
-    convergence_rate_fig = go.Figure(
-        layout=go.Layout(
-            xaxis_title=r'$\text{Number of Iteration }(t)$',
-            yaxis_title=r'$ - \ell(w^t|X,y)$',
-            title=r"$\text{Convergence Rate: } - \ell(w^t|X,y)\text{ as a function of } t \text{ the GD iteration}$"),
-        data=[go.Scatter(y=values, x=np.arange(1, len(values) + 1),
-                         mode="lines", name='')]
-    )
-    convergence_rate_fig.show()
+    print(" === Question 9 ===")
+    print("Best threshold: alpha=", best_alpha)
 
-    # from sklearn.linear_model import LogisticRegression as LR
-    # estimator = LR(penalty='none', solver='newton-cg')
-    # estimator.fit(X_train, y_train)
-    # plot_roc_curve(y_test, estimator.predict_proba(X_test)[:, 0])
-
-
-    # plot_roc_curve(np.array(y_test), estimator.predict_proba(X_test)[:,0], "My roc")
+    # fit again with the best alpha and report the test error
+    estimator = LogisticRegression(solver=gd, alpha=best_alpha)
+    estimator.fit(X_train, y_train)
+    print(f"The misclassification rate on the test set is {estimator.loss(X_test, y_test):.4f}\n")
 
     # Fitting l1- and l2-regularized logistic regression models, using cross-validation to specify values
     # of regularization parameter
-    for penalty in ['l1', 'l2']: # : []: #
+    gd = GradientDescent(FixedLR(1e-4), max_iter=20_000)
+    for penalty in ['l1', 'l2']:
         print(f"==== Testing {penalty} penalty ====")
-
         lambdas = np.array([0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1])
-        train_err = np.empty(len(lambdas))
-        valid_err = np.empty(len(lambdas))
+        train_err, valid_err = np.zeros(len(lambdas)), np.zeros(len(lambdas))
+
         for i, lam in enumerate(lambdas):
-            callback, values, weights = get_gd_state_recorder_callback()
-            gd = GradientDescent(FixedLR(1e-4), callback=callback, max_iter=20_000, out_type='average')
             estimator = LogisticRegression(solver=gd, penalty=penalty, lam=lam)
             train_err[i], valid_err[i] = cross_validate(estimator, X_train, y_train, misclassification_error)
-
-            convergence_rate_fig = go.Figure(
-                layout=go.Layout(
-                    xaxis_title=r'$\text{Number of Iteration }(t)$',
-                    yaxis_title=r'$\text{Logistic Loss}$',
-                    title=exp_lr_fig_title),
-                data=[go.Scatter(y=values, x=np.arange(1, len(values) + 1),
-                       mode="lines", name=rf"$\penalty={penalty}$")]
-            )
-            convergence_rate_fig.show()
 
         # plot the cv error
         fig = go.Figure(data=[go.Scatter(x=lambdas, y=train_err, name="Training Error"),
@@ -336,13 +314,16 @@ def fit_logistic_regression():
 
         best_lam_index = valid_err.argmin()
         print(f"Best lambda is {lambdas[best_lam_index]}")
-        print(f"Achieved misclassification rate of {valid_err[best_lam_index]}\n")
+        print(f"\tValidation Error: {valid_err[best_lam_index]}")
 
-
+        # fit with selected lambda and report the test error
+        best_est = LogisticRegression(solver=gd, penalty=penalty, lam=lambdas[best_lam_index])
+        best_est.fit(X_train, y_train)
+        print(f"\tTest Error: {best_est.loss(X_test, y_test)}\n")
 
 
 if __name__ == '__main__':
     np.random.seed(0)
-    # compare_fixed_learning_rates()
-    # compare_exponential_decay_rates()
+    compare_fixed_learning_rates()
+    compare_exponential_decay_rates()
     fit_logistic_regression()

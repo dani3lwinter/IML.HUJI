@@ -131,10 +131,9 @@ class LogisticModule(BaseModule):
         output: ndarray of shape (1,)
             Value of function at point self.weights
         """
+        # returns (1/m) sum_i^m[y*<x_i,w> - log(1+e^<x_i,w>))]
         n_samples = X.shape[0]
-        # TODO: the book (p.63) says l(w)=(1/m) sum_i^m[y*<x_i,w> - log(1+e^<x_i,w>))]
         Xw = X @ self.weights
-        # the book version
         f = - (Xw @ y - np.log(1 + np.exp(Xw)).sum()) / n_samples
         return f
 
@@ -156,13 +155,6 @@ class LogisticModule(BaseModule):
             Derivative of function with respect to self.weights at point self.weights
         """
         Xw = X @ self.weights
-        # def sigmoid(value):
-        #     if -value > np.log(np.finfo(type(value)).max):
-        #         return 0.0
-        #     a = np.exp(-value)
-        #     return 1.0 / (1.0 + a)
-        #
-        # sigmoid_vec = np.array([sigmoid(v) for v in Xw])
         sigmoid = 1 / (1 + np.exp(-Xw))
         n_samples = X.shape[0]
         return ((sigmoid - y) @ X) / n_samples
